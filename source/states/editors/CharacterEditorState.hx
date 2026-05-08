@@ -11,6 +11,7 @@ import openfl.events.IOErrorEvent;
 import openfl.utils.Assets;
 
 import objects.Character;
+import objects.CharacterFactory;
 import objects.HealthIcon;
 import objects.Bar;
 
@@ -228,7 +229,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		}
 
 		var isPlayer = (reload ? character.isPlayer : !predictCharacterIsNotPlayer(_char));
-		character = new Character(0, 0, _char, isPlayer);
+		character = CharacterFactory.create(0, 0, _char, isPlayer);
 		if(!reload && character.editorIsPlayer != null && isPlayer != character.editorIsPlayer)
 		{
 			character.isPlayer = !character.isPlayer;

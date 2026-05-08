@@ -1,5 +1,9 @@
 package objects;
 
+#if (!flash && sys)
+import flixel.addons.display.FlxRuntimeShader;
+#end
+
 class FlareonCharacter extends Character
 {
 	static inline final MOUTH_OFFSET_X:Float = 130;
@@ -7,6 +11,10 @@ class FlareonCharacter extends Character
 	static inline final BOUNCE_DURATION:Float = 0.12;
 	static inline final BOUNCE_HEIGHT:Float = 12;
 	static inline final MISS_FLASH_DURATION:Float = 0.15;
+	static inline final SING_POSE_DURATION:Float = 0.18;
+	static inline final HEY_POSE_DURATION:Float = 0.6;
+	static inline final ACTION_POSE_DURATION:Float = 0.32;
+	static inline final HIT_POSE_DURATION:Float = 0.35;
 
 	var tail:FlxSprite;
 	var body:FlxSprite;
@@ -14,6 +22,7 @@ class FlareonCharacter extends Character
 	var mouth:FlxSprite;
 
 	var time:Float = 0;
+	var singPoseTime:Float = 0;
 	var singTimer:Float = 0;
 	var bounceTimer:Float = 0;
 	var missFlashTimer:Float = 0;
@@ -34,7 +43,6 @@ class FlareonCharacter extends Character
 		antialiasing = false;
 		hasMissAnimations = true;
 
-		animation.destroyAnimations();
 		offset.set();
 		origin.set(width * 0.5, height * 0.5);
 
@@ -42,9 +50,14 @@ class FlareonCharacter extends Character
 		body = makePart('torso');
 		head = makePart('head');
 		mouth = makePart('mouth');
-		mouth.antialiasing = false;
 
-		for (anim in ['idle', 'hey', 'singLEFT', 'singDOWN', 'singUP', 'singRIGHT', 'singLEFTmiss', 'singDOWNmiss', 'singUPmiss', 'singRIGHTmiss'])
+		for (anim in [
+			'idle', 'idle-loop', 'hey',
+			'singLEFT', 'singDOWN', 'singUP', 'singRIGHT',
+			'singLEFT-loop', 'singDOWN-loop', 'singUP-loop', 'singRIGHT-loop',
+			'singLEFTmiss', 'singDOWNmiss', 'singUPmiss', 'singRIGHTmiss',
+			'pre-attack', 'attack', 'dodge', 'hurt', 'hit', 'scared'
+		])
 			addOffset(anim);
 
 		playAnim('idle', true);
@@ -62,10 +75,7 @@ class FlareonCharacter extends Character
 	override function update(elapsed:Float)
 	{
 		if (debugMode)
-		{
 			super.update(elapsed);
-			return;
-		}
 
 		if (missFlashTimer > 0)
 		{
@@ -73,21 +83,34 @@ class FlareonCharacter extends Character
 			setPartsColor(0xFF00A0FF);
 		}
 		else
-			setPartsColor(FlxColor.WHITE);
+			setPartsColor(color);
 
-		if (currentAnim == 'idle')
+		if (isIdleAnim(currentAnim))
 			applyIdle(elapsed);
 		else
 		{
-			applySingPose(currentAnim);
-			singTimer -= elapsed;
-			if (singTimer <= 0)
+			singPoseTime += elapsed;
+			applyPose(currentAnim);
+
+			if (!debugMode && !isHeldPose(currentAnim))
 			{
-				currentAnim = 'idle';
-				bounceTimer = BOUNCE_DURATION;
-				mouthIsOpen = false;
-				mouth.alpha = 0;
-				mouth.visible = false;
+				singTimer -= elapsed;
+				if (singTimer <= 0)
+				{
+					var loopAnim:String = currentAnim + '-loop';
+					if (currentAnim.startsWith('sing') && hasAnimation(loopAnim))
+						playAnim(loopAnim);
+					else
+					{
+						currentAnim = 'idle';
+						specialAnim = false;
+						heyTimer = 0;
+						bounceTimer = BOUNCE_DURATION;
+						mouthIsOpen = false;
+						mouth.alpha = 0;
+						mouth.visible = false;
+					}
+				}
 			}
 		}
 
@@ -100,6 +123,11 @@ class FlareonCharacter extends Character
 
 		updateMouth();
 		holdTimer = currentAnim.startsWith('sing') ? holdTimer + elapsed : 0;
+		if (!debugMode && !isPlayer && holdTimer >= Conductor.stepCrochet * (0.0011 #if FLX_PITCH / (FlxG.sound.music != null ? FlxG.sound.music.pitch : 1) #end) * singDuration)
+		{
+			dance();
+			holdTimer = 0;
+		}
 
 		tail.update(elapsed);
 		body.update(elapsed);
@@ -117,64 +145,121 @@ class FlareonCharacter extends Character
 
 		var headBob = bodyBob * 0.3 + Math.sin(time * 2.2);
 		var headWiggle = Math.sin(time * 4) * 2;
-		positionPart(head, 5, headBob, headWiggle);
+		positionPart(head, 5, bodyBob + headBob, headWiggle);
 
 		var mouthBob = headBob * 0.5 + Math.sin(time * 3) * 0.5;
 		positionPart(mouth, 0, mouthBob);
-		var mouthWiggle = Math.sin(time * 6) * 1.5;
-		mouth.angle = head.angle + mouthWiggle;
+		mouth.angle = head.angle + Math.sin(time * 6) * 1.5;
 
 		var tailWag = Math.sin(time * 3 + 0.5) * 12;
-		positionPart(tail, -40, bodyBob * 0.6, tailWag);
+		positionPart(tail, -40, bodyBob + bodyBob * 0.6, tailWag);
 		setMouth(false);
 	}
 
-	function applySingPose(anim:String)
+	function applyPose(anim:String)
 	{
-		positionPart(body, 0, 0, 0, 1, 1);
 		mouthIsOpen = true;
 
-		switch(anim.replace('miss', ''))
+		var loopWave:Float = Math.sin(singPoseTime * 12);
+		var tailWave:Float = Math.sin(singPoseTime * 18);
+		var attackPulse:Float = anim.endsWith('-loop') ? 0 : Math.sin(Math.min(singPoseTime / SING_POSE_DURATION, 1) * Math.PI);
+		var bodyBob:Float = loopWave * 1.5;
+		var headBob:Float = loopWave * 1.2 + attackPulse * 2;
+		var tailFlick:Float = tailWave * 4 + attackPulse * 5;
+
+		switch(getPoseAnim(anim))
 		{
 			case 'singLEFT':
-				positionPart(head, -5, 0, -0.5);
-				positionPart(tail, -45, 5, -5);
-				mouth.alpha = 1;
-				mouth.visible = true;
+				positionPart(body, -4 - attackPulse * 2, 1 + bodyBob, -0.25 - loopWave * 0.25, 1, 1);
+				positionPart(head, -5 - attackPulse * 3, headBob, -0.5 - loopWave * 1.5);
+				positionPart(tail, -45 - attackPulse * 2, 5 + bodyBob, -5 - tailFlick);
 			case 'singDOWN':
-				positionPart(head, 5, 0);
-				positionPart(tail, -40, 20);
-				mouth.alpha = 1;
-				mouth.visible = true;
+				positionPart(body, 2, 5 + bodyBob + attackPulse * 3, loopWave * 0.2, 1.02 + attackPulse * 0.015, 0.98 - attackPulse * 0.015);
+				positionPart(head, 5, headBob + attackPulse * 2, loopWave);
+				positionPart(tail, -40, 20 + bodyBob + attackPulse * 2, tailFlick * 0.7);
 			case 'singUP':
-				positionPart(head, 5, 0, 0.5);
-				positionPart(tail, -35, 0, 10);
-				mouth.alpha = 1;
-				mouth.visible = true;
+				positionPart(body, 2, -4 + bodyBob - attackPulse * 3, 0.2 + loopWave * 0.2, 0.99 - attackPulse * 0.01, 1.02 + attackPulse * 0.02);
+				positionPart(head, 5, headBob - attackPulse * 3, 0.5 + loopWave * 1.25);
+				positionPart(tail, -35, bodyBob - attackPulse, 10 + tailFlick);
 			case 'singRIGHT':
-				positionPart(head, 15, 0, 0.5);
-				positionPart(tail, -35, 5, 5);
-				mouth.alpha = 1;
-				mouth.visible = true;
+				positionPart(body, 5 + attackPulse * 2, 1 + bodyBob, 0.25 + loopWave * 0.25, 1, 1);
+				positionPart(head, 15 + attackPulse * 3, headBob, 0.5 + loopWave * 1.5);
+				positionPart(tail, -35 + attackPulse * 2, 5 + bodyBob, 5 + tailFlick);
 			case 'idle':
+				positionPart(body, 0, 0, 0, 1, 1);
 				mouth.alpha = 0;
 				mouth.visible = false;
 			case 'hey':
-				positionPart(head, 0, -10, 0);
-				positionPart(tail, -40, 10, 0);
-				mouth.alpha = 1;
-				mouth.visible = true;
+				var frame:Int = getProceduralFrame(HEY_POSE_DURATION, 6);
+				var pop:Float = switch(frame)
+				{
+					case 0: 0.25;
+					case 1: 0.85;
+					case 2, 3: 1;
+					case 4: 0.65;
+					default: 0.35;
+				}
+				var wave:Float = Math.sin(singPoseTime * 18);
+				positionPart(body, 0, -4 - pop * 5, wave * 0.35, 1 + pop * 0.015, 1 - pop * 0.01);
+				positionPart(head, 0, -10 - pop * 7, wave * 2.2);
+				positionPart(tail, -40, 10 - pop * 3, pop * 10 + Math.sin(singPoseTime * 24) * 5);
+			case 'pre-attack':
+				var p:Float = easePose(singPoseTime, ACTION_POSE_DURATION);
+				var shake:Float = Math.sin(singPoseTime * 42) * p;
+				positionPart(body, -12 * p, 10 * p, -6 * p + shake, 1.04, 0.96);
+				positionPart(head, -14 * p, 2 * p, -8 * p + shake * 1.5);
+				positionPart(tail, -58 * p - 40, 18 * p, 20 * p + Math.sin(singPoseTime * 22) * 4);
+			case 'attack':
+				var p:Float = easePose(singPoseTime, ACTION_POSE_DURATION);
+				var strike:Float = Math.sin(p * Math.PI);
+				positionPart(body, 18 * strike + 4 * p, -7 * strike, 5 * strike, 1.03 + strike * 0.03, 0.98);
+				positionPart(head, 34 * strike + 8 * p, -12 * strike, 9 * strike);
+				positionPart(tail, -44 - 18 * strike, 4 - 5 * strike, -16 * strike + Math.sin(singPoseTime * 26) * 3);
+			case 'dodge':
+				var p:Float = easePose(singPoseTime, ACTION_POSE_DURATION);
+				var dip:Float = Math.sin(p * Math.PI);
+				positionPart(body, -24 * dip, 18 * dip, -11 * dip, 1.02, 0.95);
+				positionPart(head, -20 * dip, 12 * dip, -14 * dip);
+				positionPart(tail, -48 - 12 * dip, 20 * dip, 18 * dip + Math.sin(singPoseTime * 20) * 2);
+			case 'hurt', 'hit':
+				var p:Float = easePose(singPoseTime, HIT_POSE_DURATION);
+				var decay:Float = 1 - p;
+				var shake:Float = Math.sin(singPoseTime * 75) * 5 * decay;
+				positionPart(body, -8 * decay + shake, 6 * decay, -4 * decay + shake * 0.4, 1, 1);
+				positionPart(head, -12 * decay + shake * 1.2, 4 * decay, -7 * decay + shake * 0.5);
+				positionPart(tail, -46 + shake, 8 * decay, 12 * decay - shake);
+			case 'scared':
+				var shake:Float = Math.sin(singPoseTime * 70) * 3;
+				var shiver:Float = Math.sin(singPoseTime * 42) * 2;
+				positionPart(body, shake, 7 + shiver, shiver * 0.5, 0.98, 1.02);
+				positionPart(head, 5 + shake * 1.4, -2 + shiver, shake * 1.2);
+				positionPart(tail, -52 + shake, 10 + shiver, 28 + Math.sin(singPoseTime * 55) * 5);
 		}
 
 		setMouth(true);
 	}
+
+	function easePose(time:Float, duration:Float):Float
+		return Math.min(time / duration, 1);
+
+	function getProceduralFrame(duration:Float, frames:Int):Int
+		return Std.int(Math.min((singPoseTime / duration) * frames, frames - 1));
+
+	function getPoseAnim(anim:String):String
+		return anim.replace('-loop', '').replace('miss', '');
+
+	function isIdleAnim(anim:String):Bool
+		return anim == 'idle' || anim == 'idle-loop' || anim == 'danceLeft' || anim == 'danceRight';
+
+	function isHeldPose(anim:String):Bool
+		return anim.endsWith('-loop') || anim == 'scared';
 
 	function positionPart(spr:FlxSprite, offsetX:Float, offsetY:Float, angleValue:Float = 0, scaleX:Float = 1, scaleY:Float = 1)
 	{
 		spr.x = x + offsetX;
 		spr.y = y + offsetY;
 		spr.angle = angleValue;
-		spr.scale.set(scaleX, scaleY);
+		spr.scale.set(scale.x * scaleX, scale.y * scaleY);
 		spr.flipX = flipX;
 	}
 
@@ -208,8 +293,10 @@ class FlareonCharacter extends Character
 	{
 		spr.cameras = cameras;
 		spr.scrollFactor.copyFrom(scrollFactor);
+		spr.offset.copyFrom(offset);
 		spr.alpha = alpha;
 		spr.visible = visible && partVisible;
+		spr.shader = shader;
 	}
 
 	override public function draw()
@@ -217,27 +304,67 @@ class FlareonCharacter extends Character
 		for (spr in [tail, body, head])
 		{
 			copyPartValues(spr);
+			updateDropShadowFrameInfo(spr);
 			spr.draw();
 		}
+
 		copyPartValues(mouth, mouthIsOpen);
+		updateDropShadowFrameInfo(mouth);
 		mouth.draw();
+	}
+
+	function updateDropShadowFrameInfo(spr:FlxSprite)
+	{
+		#if (!flash && sys)
+		if (spr.shader == null || spr.frame == null || !Std.isOfType(spr.shader, FlxRuntimeShader))
+			return;
+
+		var runtimeShader:FlxRuntimeShader = cast spr.shader;
+		runtimeShader.setFloatArray('uFrameBounds', [spr.frame.uv.x, spr.frame.uv.y, spr.frame.uv.width, spr.frame.uv.height]);
+		runtimeShader.setFloat('angOffset', spr.frame.angle * (Math.PI / 180));
+		#end
 	}
 
 	override public function playAnim(AnimName:String, Force:Bool = false, Reversed:Bool = false, Frame:Int = 0):Void
 	{
 		specialAnim = false;
+		if (Force || getPoseAnim(currentAnim) != getPoseAnim(AnimName))
+			singPoseTime = 0;
 		currentAnim = AnimName;
 		_lastPlayedAnimation = AnimName;
+
+		if (animation.exists(AnimName))
+			animation.play(AnimName, Force, Reversed, Frame);
+
 		if (AnimName.startsWith('sing'))
 		{
-			singTimer = 0.18;
+			singTimer = AnimName.endsWith('-loop') ? 0 : SING_POSE_DURATION;
 			if (AnimName.endsWith('miss'))
 				missFlashTimer = MISS_FLASH_DURATION;
 		}
-		else if (AnimName.startsWith('idle') || AnimName == 'danceLeft' || AnimName == 'danceRight')
+		else if (isIdleAnim(AnimName))
 		{
 			currentAnim = 'idle';
 			mouthIsOpen = false;
+		}
+		else
+		{
+			singTimer = switch(AnimName)
+			{
+				case 'hey': HEY_POSE_DURATION;
+				case 'hurt', 'hit': HIT_POSE_DURATION;
+				default: ACTION_POSE_DURATION;
+			}
+			if (AnimName == 'scared')
+				singTimer = 0;
+			if (AnimName == 'hurt' || AnimName == 'hit')
+				missFlashTimer = HIT_POSE_DURATION;
+		}
+
+		if (hasAnimation(AnimName))
+		{
+			var daOffset = animOffsets.get(AnimName);
+			offset.set(daOffset[0], daOffset[1]);
 		}
 	}
 
@@ -251,5 +378,5 @@ class FlareonCharacter extends Character
 		return animOffsets.exists(anim);
 
 	override public function isAnimationFinished():Bool
-		return singTimer <= 0;
+		return currentAnim != 'scared' && !currentAnim.endsWith('-loop') && singTimer <= 0;
 }
