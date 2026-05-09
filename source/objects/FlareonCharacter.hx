@@ -164,7 +164,7 @@ class FlareonCharacter extends Character
 
 	function applyPose(anim:String)
 	{
-		mouthIsOpen = true;
+		mouthIsOpen = isSingingPose(anim);
 
 		var loopWave:Float = Math.sin(singPoseTime * 12);
 		var tailWave:Float = Math.sin(singPoseTime * 18);
@@ -242,7 +242,7 @@ class FlareonCharacter extends Character
 				positionPart(tail, -52 + shake, 10 + shiver, 28 + Math.sin(singPoseTime * 55) * 5);
 		}
 
-		setMouth(true);
+		setMouth(mouthIsOpen);
 	}
 
 	function easePose(time:Float, duration:Float):Float
@@ -259,6 +259,9 @@ class FlareonCharacter extends Character
 
 	function isHeldPose(anim:String):Bool
 		return anim.endsWith('-loop') || anim == 'scared';
+
+	function isSingingPose(anim:String):Bool
+		return anim.startsWith('sing');
 
 	function positionPart(spr:FlxSprite, offsetX:Float, offsetY:Float, angleValue:Float = 0, scaleX:Float = 1, scaleY:Float = 1)
 	{
@@ -559,6 +562,7 @@ class FlareonCharacter extends Character
 		}
 		else
 		{
+			mouthIsOpen = false;
 			singTimer = switch(AnimName)
 			{
 				case 'hey': HEY_POSE_DURATION;
