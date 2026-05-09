@@ -262,9 +262,10 @@ class FlareonCharacter extends Character
 
 	function positionPart(spr:FlxSprite, offsetX:Float, offsetY:Float, angleValue:Float = 0, scaleX:Float = 1, scaleY:Float = 1)
 	{
-		spr.x = x + offsetX;
+		var direction:Float = flipX ? -1 : 1;
+		spr.x = x + offsetX * direction;
 		spr.y = y + offsetY;
-		spr.angle = angleValue;
+		spr.angle = angleValue * direction;
 		spr.scale.set(scale.x * scaleX, scale.y * scaleY);
 		spr.flipX = flipX;
 	}
@@ -296,13 +297,14 @@ class FlareonCharacter extends Character
 	}
 
 	#if sys
-	public function makeSpritesheet(?outputFolder:String = 'example_mods/images', ?sheetName:String = 'flareon-generated', framePadding:Int = 24, columns:Int = 4):Bool
+	public function makeSpritesheet(?outputFolder:String = 'example_mods/images', ?sheetName:String = 'flareon-generated', framePadding:Int = 24, columns:Int = 8):Bool
 	{
 		if (columns < 1)
 			columns = 1;
 
 		var frames:Array<Dynamic> = [];
 		addSheetFrames(frames, 'idle', 0.8, 8);
+		addSheetFrames(frames, 'idle-loop', 0.8, 8);
 		addSheetFrames(frames, 'hey', HEY_POSE_DURATION, 6);
 		for (anim in ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'])
 		{
