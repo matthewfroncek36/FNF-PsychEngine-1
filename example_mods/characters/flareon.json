@@ -1,164 +1,164 @@
 {
 	"animations": [
 		{
-			"loop": false,
 			"offsets": [-5, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "idle",
-			"fps": 24,
-			"name": "idle",
-			"indices": []
+			"indices": [],
+			"name": "idle"
 		},
 		{
-			"loop": false,
 			"offsets": [5, -6],
+			"loop": false,
+			"fps": 24,
 			"anim": "singLEFT",
-			"fps": 24,
-			"name": "singLEFT",
-			"indices": []
+			"indices": [],
+			"name": "singLEFT"
 		},
 		{
-			"loop": false,
 			"offsets": [-20, -51],
+			"loop": false,
+			"fps": 24,
 			"anim": "singDOWN",
-			"fps": 24,
-			"name": "singDOWN",
-			"indices": []
+			"indices": [],
+			"name": "singDOWN"
 		},
 		{
-			"loop": false,
 			"offsets": [-46, 27],
+			"loop": false,
+			"fps": 24,
 			"anim": "singUP",
-			"fps": 24,
-			"name": "singUP",
-			"indices": []
+			"indices": [],
+			"name": "singUP"
 		},
 		{
-			"loop": false,
 			"offsets": [-48, -7],
+			"loop": false,
+			"fps": 24,
 			"anim": "singRIGHT",
-			"fps": 24,
-			"name": "singRIGHT",
-			"indices": []
+			"indices": [],
+			"name": "singRIGHT"
 		},
 		{
-			"loop": true,
 			"offsets": [5, -6],
+			"loop": true,
+			"fps": 24,
 			"anim": "singLEFT-loop",
-			"fps": 24,
-			"name": "singLEFT-loop",
-			"indices": []
+			"indices": [],
+			"name": "singLEFT-loop"
 		},
 		{
-			"loop": true,
 			"offsets": [-20, -51],
+			"loop": true,
+			"fps": 24,
 			"anim": "singDOWN-loop",
-			"fps": 24,
-			"name": "singDOWN-loop",
-			"indices": []
+			"indices": [],
+			"name": "singDOWN-loop"
 		},
 		{
-			"loop": true,
 			"offsets": [-46, 27],
+			"loop": true,
+			"fps": 24,
 			"anim": "singUP-loop",
-			"fps": 24,
-			"name": "singUP-loop",
-			"indices": []
+			"indices": [],
+			"name": "singUP-loop"
 		},
 		{
-			"loop": true,
 			"offsets": [-48, -7],
-			"anim": "singRIGHT-loop",
-			"fps": 24,
-			"name": "singRIGHT-loop",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [7, 19],
-			"anim": "singLEFTmiss",
-			"fps": 24,
-			"name": "singLEFTmiss",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [-15, -19],
-			"anim": "singDOWNmiss",
-			"fps": 24,
-			"name": "singDOWNmiss",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [-46, 27],
-			"anim": "singUPmiss",
-			"fps": 24,
-			"name": "singUPmiss",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [-44, 22],
-			"anim": "singRIGHTmiss",
-			"fps": 24,
-			"name": "singRIGHTmiss",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [-3, 5],
-			"anim": "hey",
-			"fps": 24,
-			"name": "hey",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [14, 18],
-			"anim": "hurt",
-			"fps": 24,
-			"name": "hurt",
-			"indices": []
-		},
-		{
-			"loop": false,
-			"offsets": [14, 18],
-			"anim": "hit",
-			"fps": 24,
-			"name": "hit",
-			"indices": []
-		},
-		{
 			"loop": true,
+			"fps": 24,
+			"anim": "singRIGHT-loop",
+			"indices": [],
+			"name": "singRIGHT-loop"
+		},
+		{
+			"offsets": [7, 19],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss",
+			"indices": [],
+			"name": "singLEFTmiss"
+		},
+		{
+			"offsets": [-15, -19],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss",
+			"indices": [],
+			"name": "singDOWNmiss"
+		},
+		{
+			"offsets": [-46, 27],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss",
+			"indices": [],
+			"name": "singUPmiss"
+		},
+		{
+			"offsets": [-44, 22],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss",
+			"indices": [],
+			"name": "singRIGHTmiss"
+		},
+		{
+			"offsets": [-3, 5],
+			"loop": false,
+			"fps": 24,
+			"anim": "hey",
+			"indices": [],
+			"name": "hey"
+		},
+		{
+			"offsets": [14, 18],
+			"loop": false,
+			"fps": 24,
+			"anim": "hurt",
+			"indices": [],
+			"name": "hurt"
+		},
+		{
+			"offsets": [14, 18],
+			"loop": false,
+			"fps": 24,
+			"anim": "hit",
+			"indices": [],
+			"name": "hit"
+		},
+		{
 			"offsets": [-4, 0],
+			"loop": true,
+			"fps": 24,
 			"anim": "scared",
-			"fps": 24,
-			"name": "scared",
-			"indices": []
+			"indices": [],
+			"name": "scared"
 		},
 		{
-			"loop": false,
 			"offsets": [-10, -16],
+			"loop": false,
+			"fps": 24,
 			"anim": "dodge",
-			"fps": 24,
-			"name": "dodge",
-			"indices": []
+			"indices": [],
+			"name": "dodge"
 		},
 		{
-			"loop": false,
 			"offsets": [294, 267],
-			"anim": "attack",
+			"loop": false,
 			"fps": 24,
-			"name": "attack",
-			"indices": []
+			"anim": "attack",
+			"indices": [],
+			"name": "attack"
 		},
 		{
-			"loop": false,
 			"offsets": [-40, -40],
-			"anim": "pre-attack",
+			"loop": false,
 			"fps": 24,
-			"name": "pre-attack",
-			"indices": []
+			"anim": "pre-attack",
+			"indices": [],
+			"name": "pre-attack"
 		}
 	],
 	"vocals_file": "",
@@ -168,7 +168,7 @@
 	"healthicon": "flareon-pixel",
 	"flip_x": true,
 	"healthbar_colors": [247, 123, 62],
-	"camera_position": [0, 0],
+	"camera_position": [400, -200],
 	"sing_duration": 4,
 	"scale": 1,
 	"_editor_isPlayer": true
