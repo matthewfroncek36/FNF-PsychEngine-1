@@ -7,6 +7,7 @@ class OptionsState extends MusicBeatState
 {
 	var options:Array<String> = [
 		'Note Colors',
+		'Character Colors',
 		'Controls',
 		'Adjust Delay and Combo',
 		'Graphics',
@@ -24,6 +25,8 @@ class OptionsState extends MusicBeatState
 		{
 			case 'Note Colors':
 				openSubState(new options.NotesColorSubState());
+			case 'Character Colors':
+				openSubState(new options.CharacterColorSubState());
 			case 'Controls':
 				openSubState(new options.ControlsSubState());
 			case 'Graphics':

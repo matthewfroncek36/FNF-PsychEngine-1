@@ -1,6 +1,7 @@
 package psychlua;
 
 import flixel.FlxBasic;
+import flixel.group.FlxGroup.FlxTypedGroup;
 import objects.Character;
 import psychlua.LuaUtils;
 import psychlua.CustomSubstate;
@@ -107,6 +108,7 @@ class HScript extends Iris
 				scriptName = f;
 			}
 		}
+		scriptThing = preprocessCompatSource(scriptThing);
 		#if LUA_ALLOWED
 		if (scriptName == null && parent != null)
 			scriptName = parent.scriptName;
@@ -139,11 +141,71 @@ class HScript extends Iris
 	}
 
 	var varsToBring(default, set):Any = null;
+	static function preprocessCompatSource(source:String):String
+	{
+		if(source == null || source.length < 1) return source;
+
+		// Codename scripts often import the same concepts through Codename package names.
+		// Psych already exposes these symbols in the HScript preset, so drop the foreign aliases
+		// before Iris tries to resolve classes that do not exist in this codebase.
+		source = ~/^\s*import\s+funkin\.backend\.assets\.Paths\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+funkin\.game\.PlayState\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+funkin\.backend\.system\.Conductor\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+funkin\.[A-Za-z0-9_\.]+\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+haxe\.Json\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+lime\.utils\.Assets\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+flixel\.[A-Za-z0-9_\.]+\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+objects\.(BGSprite|HealthIcon|StrumNote|NoteSplash)\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+backend\.(Highscore|StageData|Difficulty)\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+openfl\.display\.BlendMode\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+flixel\.input\.keyboard\.FlxKey\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+flixel\.input\.gamepad\.FlxGamepadInputID\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+haxe\.xml\.Access\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+haxe\.xml\.Parser\s*;\s*$/gm.replace(source, '');
+		source = ~/^\s*import\s+haxe\.xml\.Printer\s*;\s*$/gm.replace(source, '');
+		source = ~/if\s*\(\s*data\.codenameChart\s*!=\s*null\s*&&\s*data\.codenameChart\s*\)/g.replace(source, 'if (data != null && data.codenameChart != null && data.codenameChart)');
+
+		// Lower the most common Codename lifecycle callback names to the Psych
+		// callbacks this engine already dispatches.
+		// A parameterized Codename `create(event)` belongs to pause/game-over/state
+		// scripts, not ordinary PlayState song scripts. Keep it out of Psych's zero-arg
+		// `onCreate()` dispatch instead of calling it with the wrong signature.
+		source = ~/function\s+create\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)[^)]*\)/g.replace(source, 'function onCompatCreate($1)');
+		source = ~/function\s+create\s*\(/g.replace(source, 'function onCreate(');
+		source = ~/function\s+postCreate\s*\(/g.replace(source, 'function onCreatePost(');
+		source = ~/function\s+update\s*\(/g.replace(source, 'function onUpdate(');
+		source = ~/function\s+postUpdate\s*\(/g.replace(source, 'function onUpdatePost(');
+		source = ~/function\s+stepHit\s*\(/g.replace(source, 'function onStepHit(');
+		source = ~/function\s+beatHit\s*\(/g.replace(source, 'function onBeatHit(');
+		source = ~/function\s+onPlayerHit\s*\(/g.replace(source, 'function goodNoteHit(');
+		source = ~/function\s+onDadHit\s*\(/g.replace(source, 'function opponentNoteHit(');
+		source = ~/function\s+onPlayerMiss\s*\(/g.replace(source, 'function noteMiss(');
+
+		// Iris accepts ordinary HScript loops, but some Codename scripts use Haxe's
+		// key/value array loop form. Lower the common array/group form conservatively.
+		var keyValueLoop = ~/for\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*=>\s*([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([A-Za-z_][A-Za-z0-9_\.]*)\s*\)\s*\{/g;
+		source = keyValueLoop.map(source, function(r)
+		{
+			var index = r.matched(1);
+			var value = r.matched(2);
+			var collection = r.matched(3);
+			return 'for ($index in 0...$collection.length) { var $value = $collection[$index];';
+		});
+		return source;
+	}
+
 	override function preset() {
 		super.preset();
 
 		// Some very commonly used classes
 		set('Type', Type);
+		set('Reflect', Reflect);
+		set('Json', CompatJson);
+		set('Map', haxe.ds.StringMap);
+		set('Assets', CompatAssets);
+		set('Xml', Xml);
+		set('FlxKey', CompatFlxKey);
+		set('FlxGamepadInputID', CompatFlxGamepadInputID);
 		#if sys
 		set('File', File);
 		set('FileSystem', FileSystem);
@@ -151,24 +213,70 @@ class HScript extends Iris
 		set('FlxG', flixel.FlxG);
 		set('FlxMath', flixel.math.FlxMath);
 		set('FlxSprite', flixel.FlxSprite);
+		set('FlxBackdrop', flixel.addons.display.FlxBackdrop);
+		set('FlxGridOverlay', flixel.addons.display.FlxGridOverlay);
+		set('FlxTypeText', flixel.addons.text.FlxTypeText);
+		set('FlxFlicker', flixel.effects.FlxFlicker);
+		set('FlxGroup', flixel.group.FlxGroup);
+		set('FlxTypedGroup', flixel.group.FlxGroup.FlxTypedGroup);
+		set('FlxTypedSpriteGroup', flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup);
+		set('FlxSpriteGroup', flixel.group.FlxSpriteGroup);
+		set('FlxObject', flixel.FlxObject);
+		set('FlxSound', flixel.sound.FlxSound);
+		set('FlxGraphic', flixel.graphics.FlxGraphic);
+		set('FlxBasePoint', flixel.math.FlxBasePoint);
+		set('FlxRandom', flixel.math.FlxRandom);
+		set('FlxRect', flixel.math.FlxRect);
+		set('FlxState', flixel.FlxState);
 		set('FlxText', flixel.text.FlxText);
+		set('FlxTextBorderStyle', flixel.text.FlxText.FlxTextBorderStyle);
+		set('FlxTextFormat', flixel.text.FlxTextFormat);
+		set('FlxTextFormatMarkerPair', flixel.text.FlxTextFormatMarkerPair);
+		set('FunkinText', flixel.text.FlxText);
 		set('FlxCamera', flixel.FlxCamera);
 		set('PsychCamera', backend.PsychCamera);
 		set('FlxTimer', flixel.util.FlxTimer);
 		set('FlxTween', flixel.tweens.FlxTween);
 		set('FlxEase', flixel.tweens.FlxEase);
+		set('FlxBar', flixel.ui.FlxBar);
+		set('FlxGradient', flixel.util.FlxGradient);
+		set('FlxSave', flixel.util.FlxSave);
+		set('FlxStringUtil', flixel.util.FlxStringUtil);
 		set('FlxColor', CustomFlxColor);
+		set('Options', CompatOptions);
 		set('Countdown', backend.BaseStage.Countdown);
 		set('PlayState', PlayState);
+		set('FreeplayState', states.FreeplayState);
+		set('MainMenuState', states.MainMenuState);
+		set('TitleState', states.TitleState);
+		set('StoryMenuState', states.StoryMenuState);
 		set('Paths', Paths);
+		set('CoolUtil', CoolUtil);
+		set('Chart', CompatChart);
 		set('Conductor', Conductor);
 		set('ClientPrefs', ClientPrefs);
 		#if ACHIEVEMENTS_ALLOWED
 		set('Achievements', Achievements);
 		#end
 		set('Character', Character);
+		set('CharacterFactory', objects.CharacterFactory);
+		set('BGSprite', objects.BGSprite);
+		set('HealthIcon', objects.HealthIcon);
+		set('StrumNote', objects.StrumNote);
+		set('NoteSplash', objects.NoteSplash);
+		set('Highscore', backend.Highscore);
+		set('DiscordClient', backend.DiscordClient);
+		set('Mods', backend.Mods);
+		set('StageData', backend.StageData);
+		set('Difficulty', backend.Difficulty);
+		set('Song', backend.Song);
+		set('PsychUIButton', backend.ui.PsychUIButton);
+		set('PsychUINumericStepper', backend.ui.PsychUINumericStepper);
 		set('Alphabet', Alphabet);
 		set('Note', objects.Note);
+		set('RGBPalette', shaders.RGBPalette);
+		set('RGBShaderReference', shaders.RGBPalette.RGBShaderReference);
+		set('CustomShader', CompatCustomShader);
 		set('CustomSubstate', CustomSubstate);
 		#if (!flash && sys)
 		set('FlxRuntimeShader', flixel.addons.display.FlxRuntimeShader);
@@ -176,6 +284,9 @@ class HScript extends Iris
 		#end
 		set('ShaderFilter', openfl.filters.ShaderFilter);
 		set('StringTools', StringTools);
+		set('Image', lime.graphics.Image);
+		set('NativeAPI', CompatNativeAPI);
+		set('WindowUtils', CompatWindowUtils);
 		#if flxanimate
 		set('FlxAnimate', FlxAnimate);
 		#end
@@ -203,6 +314,7 @@ class HScript extends Iris
 			if(color == null) color = FlxColor.WHITE;
 			PlayState.instance.addTextToDebug(text, color);
 		});
+		set('lerp', function(a:Float, b:Float, ratio:Float) return flixel.math.FlxMath.lerp(a, b, ratio));
 		set('getModSetting', function(saveTag:String, ?modName:String = null) {
 			if(modName == null)
 			{
@@ -338,6 +450,52 @@ class HScript extends Iris
 		set('game', FlxG.state);
 		set('controls', Controls.instance);
 
+		// Light compatibility aliases used by several Codename/Yoshi-style scripts.
+		// Keep these additive and conservative: Psych fields still remain the source of truth.
+		if(Std.isOfType(FlxG.state, PlayState))
+		{
+			var playState:PlayState = cast FlxG.state;
+			set('state', playState);
+			set('playState', playState);
+			set('camGame', playState.camGame);
+			set('camHUD', playState.camHUD);
+			set('camOther', playState.camOther);
+			set('boyfriend', playState.boyfriend);
+			set('dad', playState.dad);
+			set('gf', playState.gf);
+			set('healthBar', playState.healthBar);
+			set('iconP1', playState.iconP1);
+			set('iconP2', playState.iconP2);
+			set('comboGroup', playState.comboGroup);
+			set('uiGroup', playState.uiGroup);
+			set('noteGroup', playState.noteGroup);
+			set('cpuStrums', playState.opponentStrums);
+			set('strumLines', new CompatStrumLines(playState));
+			set('events', CompatEvents.fromPsych(playState.eventNotes));
+			set('members', playState.members);
+			set('insert', function(index:Int, obj:FlxBasic)
+			{
+				var safeIndex:Int = index;
+				if(safeIndex < 0) safeIndex = 0;
+				if(safeIndex > playState.members.length) safeIndex = playState.members.length;
+				return playState.insert(safeIndex, obj);
+			});
+			set('window', FlxG.stage.window);
+			set('strumID', 0);
+			set('charID', 0);
+			set('downscroll', ClientPrefs.data.downScroll);
+			set('middlescroll', ClientPrefs.data.middleScroll);
+			set('flashing', ClientPrefs.data.flashing);
+			set('importScript', function(path:String)
+			{
+				if(path == null || path.trim().length < 1) return false;
+				return playState.startHScriptsNamed(path);
+			});
+			set('addBehindGF', function(obj:FlxBasic) return playState.insert(playState.members.indexOf(playState.gfGroup), obj));
+			set('addBehindBF', function(obj:FlxBasic) return playState.insert(playState.members.indexOf(playState.boyfriendGroup), obj));
+			set('addBehindDad', function(obj:FlxBasic) return playState.insert(playState.members.indexOf(playState.dadGroup), obj));
+		}
+
 		set('buildTarget', LuaUtils.getBuildTarget());
 		set('customSubstate', CustomSubstate.instance);
 		set('customSubstateName', CustomSubstate.name);
@@ -347,6 +505,11 @@ class HScript extends Iris
 		set('Function_StopLua', LuaUtils.Function_StopLua); //doesnt do much cuz HScript has a lower priority than Lua
 		set('Function_StopHScript', LuaUtils.Function_StopHScript);
 		set('Function_StopAll', LuaUtils.Function_StopAll);
+	}
+
+	public function getCompatValue(name:String):Dynamic
+	{
+		return interp != null && interp.variables.exists(name) ? interp.variables.get(name) : null;
 	}
 
 	#if LUA_ALLOWED
@@ -523,6 +686,225 @@ class CustomFlxColor {
 
 	public static function fromString(str:String):Int
 		return cast FlxColor.fromString(str);
+}
+
+class CompatOptions {
+	public static var antialiasing(get, never):Bool;
+	public static var downscroll(get, never):Bool;
+	public static var gameplayShaders(get, never):Bool;
+	public static var colorHealthBar(get, never):Bool;
+
+	static inline function get_antialiasing():Bool return ClientPrefs.data.antialiasing;
+	static inline function get_downscroll():Bool return ClientPrefs.data.downScroll;
+	static inline function get_gameplayShaders():Bool return ClientPrefs.data.shaders;
+	static inline function get_colorHealthBar():Bool return true;
+}
+
+class CompatFlxKey {
+	public static function fromString(value:String):Int
+		return flixel.input.keyboard.FlxKey.fromString(value);
+}
+
+class CompatFlxGamepadInputID {
+	public static function fromString(value:String):Int
+		return flixel.input.gamepad.FlxGamepadInputID.fromString(value);
+}
+
+class CompatAssets {
+	public static function exists(path:String):Bool
+	{
+		#if sys
+		if(path != null && FileSystem.exists(path)) return true;
+		#end
+		return openfl.utils.Assets.exists(path);
+	}
+
+	public static function getText(path:String):String
+	{
+		#if sys
+		if(path != null && FileSystem.exists(path)) return File.getContent(path);
+		#end
+		return openfl.utils.Assets.getText(path);
+	}
+
+	public static function getBytes(path:String):haxe.io.Bytes
+	{
+		#if sys
+		if(path != null && FileSystem.exists(path)) return File.getBytes(path);
+		#end
+		return openfl.utils.Assets.getBytes(path);
+	}
+}
+
+class CompatJson {
+	public static function parse(text:String):Dynamic
+		return haxe.Json.parse(text);
+
+	public static function stringify(value:Dynamic, ?replacer:Dynamic, ?space:String):String
+		return haxe.Json.stringify(value, replacer, space);
+}
+
+class CompatChart {}
+
+class CompatNativeAPI {
+	public static function allocConsole():Void {}
+}
+
+class CompatWindowUtils {
+	public static var winTitle(get, set):String;
+	static function get_winTitle():String
+		return FlxG.stage != null && FlxG.stage.window != null ? FlxG.stage.window.title : '';
+	static function set_winTitle(value:String):String
+	{
+		if(FlxG.stage != null && FlxG.stage.window != null) FlxG.stage.window.title = value;
+		return value;
+	}
+}
+
+#if (!flash && sys)
+class CompatCustomShader extends shaders.ErrorHandledShader.ErrorHandledRuntimeShader
+{
+	public var hue(default, set):Float = 0;
+	public var saturation(default, set):Float = 0;
+	public var brightness(default, set):Float = 0;
+	public var contrast(default, set):Float = 0;
+
+	public function new(shaderName:String)
+	{
+		var frag:String = null;
+		var vert:String = null;
+		if(PlayState.instance != null)
+		{
+			PlayState.instance.initLuaShader(shaderName);
+			if(PlayState.instance.runtimeShaders.exists(shaderName))
+			{
+				var data = PlayState.instance.runtimeShaders.get(shaderName);
+				frag = data[0];
+				vert = data[1];
+			}
+		}
+		super(shaderName, frag, vert);
+	}
+
+	inline function set_hue(value:Float):Float { setFloat('hue', value); return hue = value; }
+	inline function set_saturation(value:Float):Float { setFloat('saturation', value); return saturation = value; }
+	inline function set_brightness(value:Float):Float { setFloat('brightness', value); return brightness = value; }
+	inline function set_contrast(value:Float):Float { setFloat('contrast', value); return contrast = value; }
+}
+#end
+
+class CompatStrumLines {
+	public var members:Array<CompatStrumLine>;
+	public var length(get, never):Int;
+
+	public function new(playState:PlayState)
+	{
+		members = [];
+		var rawLines:Array<Dynamic> = PlayState.SONG != null && PlayState.SONG.strumLines != null ? PlayState.SONG.strumLines : [];
+		if(rawLines.length > 0)
+		{
+			for(i in 0...rawLines.length)
+			{
+				var raw = rawLines[i];
+				var chars:Array<Character> = [];
+				var position:String = raw != null && raw.position != null ? Std.string(raw.position) : '';
+				switch(position)
+				{
+					case 'dad': if(playState.dad != null) chars.push(playState.dad);
+					case 'boyfriend': if(playState.boyfriend != null) chars.push(playState.boyfriend);
+					case 'girlfriend': if(playState.gf != null) chars.push(playState.gf);
+				}
+				if(chars.length < 1)
+				{
+					if(i == 0 && playState.dad != null) chars.push(playState.dad);
+					else if(i == 1 && playState.boyfriend != null) chars.push(playState.boyfriend);
+					else if(i == 2 && playState.gf != null) chars.push(playState.gf);
+				}
+				if(raw != null && raw.characters != null && chars.length > 0)
+				{
+					var rawChars:Array<Dynamic> = cast raw.characters;
+					for(charIndex in 1...rawChars.length)
+					{
+						var extra:Character = objects.CharacterFactory.create(chars[0].x, chars[0].y, Std.string(rawChars[charIndex]), position == 'boyfriend');
+						extra.visible = false;
+						switch(position)
+						{
+							case 'boyfriend': playState.boyfriendGroup.add(extra);
+							case 'girlfriend': playState.gfGroup.add(extra);
+							default: playState.dadGroup.add(extra);
+						}
+						chars.push(extra);
+					}
+				}
+				members.push(new CompatStrumLine(i, chars, i == 1 ? playState.playerStrums : playState.opponentStrums, raw));
+			}
+		}
+		else
+		{
+			members = [
+				new CompatStrumLine(0, [playState.dad], playState.opponentStrums, null),
+				new CompatStrumLine(1, [playState.boyfriend], playState.playerStrums, null),
+				new CompatStrumLine(2, playState.gf != null ? [playState.gf] : [], playState.opponentStrums, null)
+			];
+		}
+	}
+
+	public inline function iterator()
+		return members.iterator();
+
+	inline function get_length():Int
+		return members.length;
+}
+
+class CompatStrumLine {
+	public var characters:Array<Character>;
+	public var notes:FlxTypedGroup<objects.Note>;
+	public var members:Array<Dynamic>;
+	public var cpu:Bool = false;
+	public var strumScale:Float = 1;
+	public var ID:Int = 0;
+	public var data:Dynamic;
+	public var animSuffix:String = '';
+	public var vocals:Dynamic = null;
+
+	public function new(id:Int, characters:Array<Character>, ?strums:Dynamic, ?data:Dynamic)
+	{
+		this.ID = id;
+		this.characters = characters;
+		this.notes = new FlxTypedGroup<objects.Note>();
+		this.members = strums != null && strums.members != null ? strums.members : [];
+		this.data = data != null ? data : {position: id == 1 ? 'boyfriend' : (id == 2 ? 'girlfriend' : 'dad')};
+	}
+
+	public inline function iterator()
+		return members.iterator();
+
+	public function remove(member:Dynamic, ?splice:Bool = false):Dynamic
+	{
+		members.remove(member);
+		return member;
+	}
+
+	public function clear():Void
+		members = [];
+
+	public function generateStrums(?count:Int = 4):Void {}
+}
+
+class CompatEvents {
+	public static function fromPsych(eventNotes:Array<objects.Note.EventNote>):Array<Dynamic>
+	{
+		var result:Array<Dynamic> = [];
+		if(eventNotes == null) return result;
+
+		for(event in eventNotes)
+			result.push({
+				name: event.event,
+				params: event.params != null ? event.params.copy() : [event.value1, event.value2],
+				time: event.strumTime
+			});
+		return result;
+	}
 }
 
 class CustomInterp extends crowplexus.hscript.Interp

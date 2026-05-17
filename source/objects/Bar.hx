@@ -75,6 +75,22 @@ class Bar extends FlxSpriteGroup
 			rightBar.color = right;
 	}
 
+	// Compatibility aliases for foreign scripts that use older/Codename-style bar APIs.
+	public inline function createFilledBar(left:FlxColor, right:FlxColor)
+		setColors(left, right);
+
+	public inline function createEmptyBar(color:FlxColor)
+		setColors(null, color);
+
+	public inline function createColoredFilledBar(color:FlxColor)
+		setColors(color, null);
+
+	public inline function createColoredEmptyBar(color:FlxColor)
+		setColors(null, color);
+
+	public inline function getFillBar():FlxSprite
+		return leftBar;
+
 	public function updateBar()
 	{
 		if(leftBar == null || rightBar == null) return;

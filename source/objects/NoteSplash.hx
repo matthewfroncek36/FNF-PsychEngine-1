@@ -29,6 +29,7 @@ typedef NoteSplashConfig = {
 
 class NoteSplash extends FlxSprite
 {
+	static var splashCols:Array<String> = ['purple', 'blue', 'green', 'red'];
 	public var rgbShader:PixelSplashShaderRef;
 	public var texture:String;
 	public var config(default, set):NoteSplashConfig;
@@ -161,7 +162,7 @@ class NoteSplash extends FlxSprite
 		var failedToFind:Bool = false;
 		while (true)
 		{
-			for (v in Note.colArray)
+			for (v in splashCols)
 			{
 				if (!checkForAnim('$anim $v ${maxAnims+1}'))
 				{
@@ -175,9 +176,9 @@ class NoteSplash extends FlxSprite
 
 		for (animNum in 0...maxAnims)
 		{
-			for (i => col in Note.colArray)
+			for (i => col in splashCols)
 			{
-				var data:Int = i % Note.colArray.length + (animNum * Note.colArray.length);
+				var data:Int = i % splashCols.length + (animNum * splashCols.length);
 				var name:String = animNum > 0 ? '$col' + (animNum + 1) : col;
 				var offset:Array<Float> = offsets[FlxMath.wrap(data, 0, Std.int(offsets.length-1))];
 				addAnimationToConfig(tempConfig, 1, name, '$anim $col ${animNum + 1}', fps, offset, [], data);
@@ -210,10 +211,10 @@ class NoteSplash extends FlxSprite
 			setPosition(babyArrow.x - Note.swagWidth * 0.95, babyArrow.y - Note.swagWidth); // To prevent it from being misplaced for one game tick
 
 		if (note != null)
-			noteData = note.noteData;
+			noteData = Note.getLaneColorIndex(note.loadedTexture, note.maniaKeyCount, note.noteData);
 
 		if (randomize && maxAnims > 1)
-			noteData = noteData % Note.colArray.length + (FlxG.random.int(0, maxAnims - 1) * Note.colArray.length);
+			noteData = noteData % splashCols.length + (FlxG.random.int(0, maxAnims - 1) * splashCols.length);
 
 		this.noteData = noteData;
 		var anim:String = playDefaultAnim();
@@ -221,7 +222,7 @@ class NoteSplash extends FlxSprite
 		var tempShader:RGBPalette = null;
 		if (config.allowRGB)
 		{
-			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
+			Note.initializeGlobalRGBShader(noteData % splashCols.length);
 			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
 			{
 				tempShader = new RGBPalette();
@@ -235,8 +236,8 @@ class NoteSplash extends FlxSprite
 						{
 							if (i > 2) break;
 
-							var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData % Note.colArray.length];
-							if (PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData % Note.colArray.length];
+							var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData % splashCols.length];
+							if (PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData % splashCols.length];
 
 							var rgb = colors[i];
 							if (rgb == null)
@@ -261,7 +262,7 @@ class NoteSplash extends FlxSprite
 							else if (i == 2) tempShader.b = color;
 						}
 					}
-					else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+					else tempShader.copyValues(Note.globalRgbShaders[noteData % splashCols.length]);
 
 					if (note != null)
 					{
@@ -270,7 +271,7 @@ class NoteSplash extends FlxSprite
 						if (note.noteSplashData.b != -1) tempShader.b = note.noteSplashData.b;
 					}
 				}
-				else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+				else tempShader.copyValues(Note.globalRgbShaders[noteData % splashCols.length]);
 			}
 		}
 		rgbShader.copyValues(tempShader);
@@ -416,7 +417,7 @@ class NoteSplash extends FlxSprite
 	function set_maxAnims(value:Int)
 	{
 		if (value > 0)
-			noteData = Std.int(FlxMath.wrap(noteData, 0, (value * Note.colArray.length) - 1));
+			noteData = Std.int(FlxMath.wrap(noteData, 0, (value * splashCols.length) - 1));
 		else
 			noteData = 0;
 

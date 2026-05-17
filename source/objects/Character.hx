@@ -10,7 +10,9 @@ import openfl.utils.Assets;
 import haxe.Json;
 
 import backend.Song;
+import backend.CompatData;
 import states.stages.objects.TankmenBG;
+import shaders.ColorSwap;
 
 typedef CharacterFile = {
 	var animations:Array<AnimArray>;
@@ -53,6 +55,8 @@ class Character extends FlxSprite
 	public var curCharacter:String = DEFAULT_CHARACTER;
 
 	public var holdTimer:Float = 0;
+	public var lastSingStrumTime:Float = -999999;
+	public var spamChainCount:Int = 0;
 	public var heyTimer:Float = 0;
 	public var specialAnim:Bool = false;
 	public var animationNotes:Array<Dynamic> = [];
@@ -67,6 +71,10 @@ class Character extends FlxSprite
 
 	public var positionArray:Array<Float> = [0, 0];
 	public var cameraPosition:Array<Float> = [0, 0];
+	public var camx(get, set):Float;
+	public var camy(get, set):Float;
+	public var depth:Int = 0;
+	public var colorSwap:ColorSwap;
 	public var healthColorArray:Array<Int> = [255, 0, 0];
 
 	public var missingCharacter:Bool = false;
@@ -124,6 +132,8 @@ class Character extends FlxSprite
 		animationsArray = [];
 		animOffsets = [];
 		curCharacter = character;
+		colorSwap = new ColorSwap();
+		shader = colorSwap.shader;
 		var characterPath:String = 'characters/$character.json';
 
 		var path:String = Paths.getPath(characterPath, TEXT);
@@ -133,6 +143,58 @@ class Character extends FlxSprite
 		if (!Assets.exists(path))
 		#end
 		{
+			#if MODS_ALLOWED
+			var codenamePath:String = Paths.getPath('data/characters/$character.xml', TEXT);
+			if(FileSystem.exists(codenamePath))
+			{
+				try
+				{
+					loadCharacterFile(CompatData.convertCodenameCharacter(File.getContent(codenamePath)));
+					missingCharacter = false;
+					skipDance = false;
+					hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
+					recalculateDanceIdle();
+					dance();
+					return;
+				}
+				catch(e:Dynamic)
+					trace('Error loading Codename character file of "$character": $e');
+			}
+
+			var folderCharacterPath:String = Paths.getPath('characters/$character/Character.json', TEXT);
+			if(FileSystem.exists(folderCharacterPath))
+			{
+				try
+				{
+					loadCharacterFile(CompatData.convertFolderCharacter(File.getContent(folderCharacterPath), character));
+					missingCharacter = false;
+					skipDance = false;
+					hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
+					recalculateDanceIdle();
+					dance();
+					return;
+				}
+				catch(e:Dynamic)
+					trace('Error loading folder character file of "$character": $e');
+			}
+
+			var yoshiCharacterPath:String = Paths.getPath('characters/$character/Character.hx', TEXT);
+			if(FileSystem.exists(yoshiCharacterPath))
+			{
+				try
+				{
+					loadCharacterFile(CompatData.convertYoshiCharacter(File.getContent(yoshiCharacterPath), character));
+					missingCharacter = false;
+					skipDance = false;
+					hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
+					recalculateDanceIdle();
+					dance();
+					return;
+				}
+				catch(e:Dynamic)
+					trace('Error loading YoshiCrafter character file of "$character": $e');
+			}
+			#end
 			path = Paths.getSharedPath('characters/' + DEFAULT_CHARACTER + '.json'); //If a character couldn't be found, change him to BF just to prevent a crash
 			missingCharacter = true;
 			missingText = new FlxText(0, 0, 300, 'ERROR:\n$character.json', 16);
@@ -208,6 +270,7 @@ class Character extends FlxSprite
 		singDuration = json.sing_duration;
 		flipX = (json.flip_x != isPlayer);
 		healthColorArray = (json.healthbar_colors != null && json.healthbar_colors.length > 2) ? json.healthbar_colors : [161, 161, 161];
+		applySavedColorSwap();
 		vocalsFile = json.vocals_file != null ? json.vocals_file : '';
 		originalFlipX = (json.flip_x == true);
 		editorIsPlayer = json._editor_isPlayer;
@@ -251,6 +314,79 @@ class Character extends FlxSprite
 		if(isAnimateAtlas) copyAtlasValues();
 		#end
 		//trace('Loaded file to character ' + curCharacter);
+	}
+
+	public inline function getIcon():String
+		return healthIcon;
+
+	public var iconColor(get, never):FlxColor;
+	inline function get_iconColor():FlxColor
+		return FlxColor.fromRGB(healthColorArray[0], healthColorArray[1], healthColorArray[2]);
+
+	public inline function getAnimName():String
+		return animation.curAnim != null ? animation.curAnim.name : '';
+
+	public inline function setDepth(value:Int):Void
+		depth = value;
+
+	inline function get_camx():Float
+		return cameraPosition != null && cameraPosition.length > 0 ? cameraPosition[0] : 0;
+
+	inline function set_camx(value:Float):Float
+	{
+		if(cameraPosition == null || cameraPosition.length < 2) cameraPosition = [0, 0];
+		cameraPosition[0] = value;
+		return value;
+	}
+
+	inline function get_camy():Float
+		return cameraPosition != null && cameraPosition.length > 1 ? cameraPosition[1] : 0;
+
+	inline function set_camy(value:Float):Float
+	{
+		if(cameraPosition == null || cameraPosition.length < 2) cameraPosition = [0, 0];
+		cameraPosition[1] = value;
+		return value;
+	}
+
+	public inline function playSingAnim(direction:Int, ?suffix:String = ''):Void
+	{
+		var singAnims:Array<String> = ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
+		if(direction >= 0 && direction < singAnims.length)
+			playAnim(singAnims[direction] + suffix, true);
+	}
+
+	public function applySavedColorSwap():Void
+	{
+		if(colorSwap == null) colorSwap = new ColorSwap();
+		var values:Array<Float> = ClientPrefs.data.characterColorSwaps != null ? ClientPrefs.data.characterColorSwaps.get(curCharacter) : null;
+		if(values == null || values.length < 3)
+		{
+			colorSwap.hue = 0;
+			colorSwap.saturation = 0;
+			colorSwap.brightness = 0;
+			shader = null;
+			return;
+		}
+
+		colorSwap.hue = values[0];
+		colorSwap.saturation = values[1];
+		colorSwap.brightness = values[2];
+		shader = colorSwap.shader;
+	}
+
+	public function resolveHeavySpamAnim(baseAnim:String):String
+	{
+		var spamAnim:String = baseAnim + 'Spam';
+		if(hasAnimation(spamAnim)) return spamAnim;
+
+		if(baseAnim.startsWith('sing'))
+		{
+			var dir:String = baseAnim.substr(4).toLowerCase();
+			var shaggyStyle:String = 's' + dir;
+			if(hasAnimation(shaggyStyle)) return shaggyStyle;
+		}
+		return baseAnim;
 	}
 
 	override function update(elapsed:Float)
