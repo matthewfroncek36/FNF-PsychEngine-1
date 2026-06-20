@@ -3,6 +3,7 @@ package states.editors;
 import backend.StageData;
 import backend.PsychCamera;
 import objects.Character;
+import objects.CharacterFactory;
 import psychlua.LuaUtils;
 
 import flixel.FlxObject;
@@ -80,11 +81,11 @@ class StageEditorState extends MusicBeatState implements PsychUIEventHandler.Psy
 		FlxG.camera.follow(null, LOCKON, 0);
 
 		loadJsonAssetDirectory();
-		gf = new Character(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.gf : 'gf');
+		gf = CharacterFactory.create(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.gf : 'gf');
 		gf.visible = !(stageJson.hide_girlfriend);
 		gf.scrollFactor.set(0.95, 0.95);
-		dad = new Character(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.dad : 'dad');
-		boyfriend = new Character(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.boyfriend : 'bf', true);
+		dad = CharacterFactory.create(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.dad : 'dad');
+		boyfriend = CharacterFactory.create(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.boyfriend : 'bf', true);
 
 		for (i in 0...4)
 		{
