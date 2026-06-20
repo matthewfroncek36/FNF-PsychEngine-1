@@ -63,6 +63,12 @@ class StageData {
 
 	public static var forceNextDirectory:String = null;
 	public static function loadDirectory(SONG:SwagSong) {
+		if(SONG == null)
+		{
+			forceNextDirectory = '';
+			return;
+		}
+
 		var stage:String = '';
 		if(SONG.stage != null)
 			stage = SONG.stage;
@@ -81,10 +87,23 @@ class StageData {
 			var path:String = Paths.getPath('stages/' + stage + '.json', TEXT, null, true);
 			#if MODS_ALLOWED
 			if(FileSystem.exists(path))
-				return cast tjson.TJSON.parse(File.getContent(path));
+			{
+				var rawJson = File.getContent(path);
+				var parsed:Dynamic = tjson.TJSON.parse(rawJson);
+				if(parsed != null && parsed.sprites != null)
+					return CompatData.convertDaveStage(rawJson);
+				return cast parsed;
+			}
 			#else
 			if(Assets.exists(path))
 				return cast tjson.TJSON.parse(Assets.getText(path));
+			#end
+
+			#if MODS_ALLOWED
+			var codenamePath:String = Paths.getPath('data/stages/' + stage + '.xml', TEXT, null, true);
+			if(FileSystem.exists(codenamePath))
+				return CompatData.convertCodenameStage(File.getContent(codenamePath));
+
 			#end
 		}
 		return dummy();

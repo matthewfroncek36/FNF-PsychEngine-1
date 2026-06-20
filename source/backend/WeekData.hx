@@ -3,6 +3,7 @@ package backend;
 import lime.utils.Assets;
 import openfl.utils.Assets as OpenFlAssets;
 import haxe.Json;
+import haxe.xml.Access;
 
 typedef WeekFile =
 {
@@ -134,7 +135,156 @@ class WeekData {
 				}
 			}
 		}
+
+		for (mod in Mods.parseList().enabled)
+		{
+			var codenameList:String = Paths.mods(mod + '/data/config/freeplaySonglist.txt');
+			if(!FileSystem.exists(codenameList))
+				codenameList = Paths.mods(mod + '/data/freeplaySonglist.txt');
+			if(FileSystem.exists(codenameList))
+				addCodenameFreeplayWeek(mod, codenameList);
+
+			var daveList:String = Paths.mods(mod + '/data/freeplaySonglist.json');
+			if(FileSystem.exists(daveList))
+				addDaveFreeplayWeek(mod, daveList);
+
+			var codenameWeeksList:String = Paths.mods(mod + '/data/weeks/weeks.txt');
+			if(FileSystem.exists(codenameWeeksList))
+				addCodenameXmlWeeks(mod, codenameWeeksList);
+		}
 		#end
+	}
+
+	private static function addDaveFreeplayWeek(mod:String, listPath:String)
+	{
+		var raw:Dynamic = Json.parse(File.getContent(listPath));
+		if(raw == null || raw.songs == null) return;
+		var songs:Array<Dynamic> = [];
+		for (song in cast(raw.songs, Array<Dynamic>))
+		{
+			if(song.name == null) continue;
+			songs.push([
+				song.displayName != null ? song.displayName : song.name,
+				song.char != null ? song.char : 'face',
+				backend.CompatData.parseColor(song.color != null ? song.color : '#9271FD')
+			]);
+		}
+		if(songs.length < 1) return;
+
+		var key = 'compat_' + mod + '_dave';
+		if(weeksLoaded.exists(key)) return;
+		var week:WeekFile = createWeekFile();
+		week.songs = songs;
+		week.storyName = mod;
+		week.weekName = mod;
+		week.hideStoryMode = true;
+		week.hideFreeplay = false;
+		var data = new WeekData(week, key);
+		data.folder = mod;
+		weeksLoaded.set(key, data);
+		weeksList.push(key);
+	}
+
+	private static function addCodenameFreeplayWeek(mod:String, listPath:String)
+	{
+		var songs:Array<Dynamic> = [];
+		var difficulties:Array<String> = [];
+		for (song in CoolUtil.coolTextFile(listPath))
+		{
+			var folder = Paths.formatToSongPath(song);
+			var metaPath = Paths.mods(mod + '/songs/' + folder + '/meta.json');
+			if(!FileSystem.exists(metaPath)) continue;
+			var meta:Dynamic = Json.parse(File.getContent(metaPath));
+			var color = backend.CompatData.parseColor(meta.color != null ? meta.color : '#9271FD');
+			// Keep the real folder/chart id in slot 0; Psych also uses this field to load the chart.
+			songs.push([song, meta.icon != null ? meta.icon : 'face', color]);
+			if(meta.difficulties != null)
+			{
+				for (difficulty in cast(meta.difficulties, Array<Dynamic>))
+				{
+					var diff = compatDifficultyName(Std.string(difficulty));
+					if(!difficulties.contains(diff))
+						difficulties.push(diff);
+				}
+			}
+		}
+		if(songs.length < 1) return;
+
+		var key = 'compat_' + mod;
+		if(weeksLoaded.exists(key)) return;
+		var week:WeekFile = createWeekFile();
+		week.songs = songs;
+		week.storyName = mod;
+		week.weekName = mod;
+		week.hideStoryMode = true;
+		week.hideFreeplay = false;
+		if(difficulties.length > 0)
+			week.difficulties = difficulties.join(',');
+		var data = new WeekData(week, key);
+		data.folder = mod;
+		weeksLoaded.set(key, data);
+		weeksList.push(key);
+	}
+
+	private static function addCodenameXmlWeeks(mod:String, listPath:String)
+	{
+		for (weekName in CoolUtil.coolTextFile(listPath))
+		{
+			var xmlPath = Paths.mods(mod + '/data/weeks/weeks/' + weekName + '.xml');
+			if(!FileSystem.exists(xmlPath)) continue;
+
+			try
+			{
+				var xml = new Access(Xml.parse(File.getContent(xmlPath)).firstElement());
+				var root = xml.name == 'week' ? xml : xml.node.week;
+				var songs:Array<Dynamic> = [];
+				for (songNode in root.nodes.song)
+				{
+					var songName:String = songNode.innerData.trim();
+					if(songName.length < 1) continue;
+					var folder = Paths.formatToSongPath(songName);
+					var metaPath = Paths.mods(mod + '/songs/' + folder + '/meta.json');
+					var icon = root.has.chars ? root.att.chars.split(',')[0] : 'face';
+					var color = root.has.bgColor ? backend.CompatData.parseColor(root.att.bgColor) : [146, 113, 253];
+					if(FileSystem.exists(metaPath))
+					{
+						var meta:Dynamic = Json.parse(File.getContent(metaPath));
+						// Keep the real folder/chart id in slot 0; Psych also uses this field to load the chart.
+						songs.push([songName, meta.icon != null ? meta.icon : icon, meta.color != null ? backend.CompatData.parseColor(meta.color) : color]);
+					}
+					else songs.push([songName, icon, color]);
+				}
+				if(songs.length < 1) continue;
+
+				var key = 'compat_' + mod + '_week_' + weekName;
+				if(weeksLoaded.exists(key)) continue;
+				var week:WeekFile = createWeekFile();
+				week.songs = songs;
+				week.storyName = root.has.name ? root.att.name : weekName;
+				week.weekName = root.has.name ? root.att.name : weekName;
+				week.hideStoryMode = false;
+				week.hideFreeplay = false;
+				var diffs:Array<String> = [];
+				for (difficulty in root.nodes.difficulty)
+					if(difficulty.has.name)
+						diffs.push(compatDifficultyName(difficulty.att.name));
+				if(diffs.length > 0) week.difficulties = diffs.join(',');
+
+				var data = new WeekData(week, key);
+				data.folder = mod;
+				weeksLoaded.set(key, data);
+				weeksList.push(key);
+			}
+			catch(e:Dynamic)
+				trace('Error loading Codename week "$weekName" from "$mod": $e');
+		}
+	}
+
+	private static function compatDifficultyName(name:String):String
+	{
+		if(name == null || name.length < 1) return name;
+		name = Paths.formatToSongPath(name);
+		return name.charAt(0).toUpperCase() + name.substr(1);
 	}
 
 	private static function addWeek(weekToCheck:String, path:String, directory:String, i:Int, originalLength:Int)

@@ -35,6 +35,10 @@ import states.TitleState;
 		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
 		[0xFF71E300, 0xFFF6FFE6, 0xFF003100],
 		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000]];
+	// Character ID -> [hue, saturation, brightness].
+	// Keys are created lazily, so characters dropped into assets or any mod folder
+	// become configurable without needing an engine-side list update.
+	public var characterColorSwaps:Map<String, Array<Float>> = [];
 
 	public var ghostTapping:Bool = true;
 	public var timeBarType:String = 'Time Left';
@@ -90,6 +94,47 @@ class ClientPrefs {
 		'note_left'		=> [A, LEFT],
 		'note_down'		=> [S, DOWN],
 		'note_right'	=> [D, RIGHT],
+		'note_one1'		=> [SPACE],
+		'note_two1'		=> [D],
+		'note_two2'		=> [K],
+		'note_three1'	=> [D],
+		'note_three2'	=> [SPACE],
+		'note_three3'	=> [K],
+		'note_five1'	=> [D],
+		'note_five2'	=> [F],
+		'note_five3'	=> [SPACE],
+		'note_five4'	=> [J],
+		'note_five5'	=> [K],
+		'note_six1'		=> [S],
+		'note_six2'		=> [D],
+		'note_six3'		=> [F],
+		'note_six4'		=> [J],
+		'note_six5'		=> [K],
+		'note_six6'		=> [L],
+		'note_seven1'	=> [S],
+		'note_seven2'	=> [D],
+		'note_seven3'	=> [F],
+		'note_seven4'	=> [SPACE],
+		'note_seven5'	=> [J],
+		'note_seven6'	=> [K],
+		'note_seven7'	=> [L],
+		'note_eight1'	=> [A],
+		'note_eight2'	=> [S],
+		'note_eight3'	=> [D],
+		'note_eight4'	=> [F],
+		'note_eight5'	=> [H],
+		'note_eight6'	=> [J],
+		'note_eight7'	=> [K],
+		'note_eight8'	=> [L],
+		'note_nine1'	=> [A],
+		'note_nine2'	=> [S],
+		'note_nine3'	=> [D],
+		'note_nine4'	=> [F],
+		'note_nine5'	=> [SPACE],
+		'note_nine6'	=> [H],
+		'note_nine7'	=> [J],
+		'note_nine8'	=> [K],
+		'note_nine9'	=> [L],
 		
 		'ui_up'			=> [W, UP],
 		'ui_left'		=> [A, LEFT],

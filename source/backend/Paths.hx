@@ -187,6 +187,9 @@ class Paths
 	inline static public function json(key:String, ?folder:String)
 		return getPath('data/$key.json', TEXT, folder, true);
 
+	inline static public function chart(song:String, difficulty:String)
+		return backend.Song.chartPath;
+
 	inline static public function shaderFragment(key:String, ?folder:String)
 		return getPath('shaders/$key.frag', TEXT, folder, true);
 
@@ -212,12 +215,26 @@ class Paths
 		return returnSound('music/$key', modsAllowed);
 
 	inline static public function inst(song:String, ?modsAllowed:Bool = true):Sound
-		return returnSound('${formatToSongPath(song)}/Inst', 'songs', modsAllowed);
+	{
+		var formattedSong = formatToSongPath(song);
+		#if MODS_ALLOWED
+		if(modsAllowed && fileExists('$formattedSong/song/Inst.$SOUND_EXT', SOUND, false, 'songs'))
+			return returnSound('$formattedSong/song/Inst', 'songs', modsAllowed);
+		#end
+		return returnSound('$formattedSong/Inst', 'songs', modsAllowed);
+	}
 
 	inline static public function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true):Sound
 	{
-		var songKey:String = '${formatToSongPath(song)}/Voices';
+		var formattedSong = formatToSongPath(song);
+		var songKey:String = '$formattedSong/Voices';
 		if(postfix != null) songKey += '-' + postfix;
+		#if MODS_ALLOWED
+		var nestedSongKey:String = '$formattedSong/song/Voices';
+		if(postfix != null) nestedSongKey += '-' + postfix;
+		if(modsAllowed && fileExists('$nestedSongKey.$SOUND_EXT', SOUND, false, 'songs'))
+			return returnSound(nestedSongKey, 'songs', modsAllowed, false);
+		#end
 		//trace('songKey test: $songKey');
 		return returnSound(songKey, 'songs', modsAllowed, false);
 	}
