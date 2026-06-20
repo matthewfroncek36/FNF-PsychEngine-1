@@ -1,6 +1,0 @@
-{
-    "params":
-    [
-        {"name": "Stage", "type": "String", "defaultValue":""}
-    ]
-}

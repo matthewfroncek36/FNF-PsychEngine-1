@@ -1,3 +1,0 @@
-@wait time="1s"
-@dialogue pos="L" portrait="invi" text="..." dbox="worried"
-@dialogue pos="L" portrait="invi" text="Okay..." dbox="sad_flip"

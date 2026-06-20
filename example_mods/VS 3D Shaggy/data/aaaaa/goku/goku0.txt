@@ -1,3 +1,0 @@
-@wait time="1s"
-@dialogue pos="L" portrait="invi" text="Yeah don't but into that" dbox="normal"
-

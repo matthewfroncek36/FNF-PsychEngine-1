@@ -1,7 +1,0 @@
-{
-    "params":
-    [
-        {"name": "Group (dad, bf, gf, or strumLineID)", "type": "String", "defaultValue":"dad"},
-		{"name": "Characters (seperated by commas)", "type": "String", "defaultValue":""}
-    ]
-}
