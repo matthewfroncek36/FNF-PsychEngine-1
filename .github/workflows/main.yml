@@ -157,9 +157,7 @@ jobs:
 
       - name: Compile HTML5
         run: |
-          haxelib run lime build Project.xml html5 \
-            --app-version="4.0.0-${{ github.run_id }}" \
-            -D officialBuild
+          haxelib run lime build Project.xml html5 --app-version="4.0.0-${{ github.run_id }}" -D officialBuild
 
       - name: Publish HTML5 Artifact
         uses: actions/upload-artifact@v4.3.4
