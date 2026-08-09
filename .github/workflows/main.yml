@@ -140,7 +140,7 @@ jobs:
 
       - uses: krdlab/setup-haxe@master
         with:
-          haxe-version: 4.3.4
+          haxe-version: 4.11.0
 
       - name: Install Haxelib
         run: |
